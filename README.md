@@ -1,6 +1,9 @@
 # Face recognition
 
 De gezichtsherkenning werkt als volgt:
+
+![Schema](approach-schema.png)
+
 * Beeld komt van de webcam
 * Een gezichtsdetedctie-algoritme (HOG) herkent waar in het beeld gezichten voorkomen
 * Dit deel wordt uitgesneden en is input voor het model
