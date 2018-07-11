@@ -1,9 +1,20 @@
+#################################################################################
+#
+# Face detection via the webcam
+#
+# ToDo: implement multi-threading (one for camera, one for frame processing) instead of processing every other frame
+#
+#################################################################################
+
 import face_recognition
 import cv2
 import glob
 import os
+import logging
 
 IMAGES_PATH = './images'
+CAMERA_DEVICE_ID = 0
+
 
 def setup_database():
     """
@@ -15,19 +26,20 @@ def setup_database():
     for filename in glob.glob(os.path.join(IMAGES_PATH, '*.jpg')):
         # load image
         image = face_recognition.load_image_file(filename)
+
         # use the name in the filename as the identity key
         identity = os.path.splitext(os.path.basename(filename))[0].split('-')[0]
-        # detect faces and get the model encoding of the first face
+
+        # detect faces and get the model encoding of the first face (there should be only 1 face in the anchor images)
         database[identity] = face_recognition.face_encodings(image)[0]
 
     return database
 
 
 def run(database):
-    # Initialize some variables
-    #face_locations = []
-    #face_encodings = []
-    #face_names = []
+    """
+    Start the face recognition via the webcam
+    """
     process_this_frame = True
 
     # Create arrays of known face encodings and their names
@@ -35,11 +47,14 @@ def run(database):
     known_face_names = list(database.keys())
 
     # Get a reference to webcam #0 (the default one)
-    video_capture = cv2.VideoCapture(0)
+    video_capture = cv2.VideoCapture(CAMERA_DEVICE_ID)
 
-    while True:
+    while video_capture.isOpened():
         # Grab a single frame of video
-        ret, frame = video_capture.read()
+        ok, frame = video_capture.read()
+        if not ok:
+            logging.error("Could not read frame from camera. Stopping video capture.")
+            break
 
         # Resize frame of video to 1/4 size for faster face recognition processing
         small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)

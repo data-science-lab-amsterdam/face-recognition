@@ -16,3 +16,5 @@ Hoe krijg je het aan de praat?
 * git clone de repo
 * Plaats in de map ./images van elk persoon één foto
 * run main.py
+
+*N.B. Ivm een bug in OpenCV op MacOS sluit het camera window niet!*

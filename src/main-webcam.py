@@ -2,8 +2,10 @@ import face_recognition
 import cv2
 import glob
 import os
+import logging
 
 IMAGES_PATH = './images'
+CAMERA_DEVICE_ID = 0
 
 
 def setup_database():
@@ -32,16 +34,22 @@ def setup_database():
 # specific demo. If you have trouble installing it, try any of the other demos that don't require it instead.
 
 def run(database):
+    """
+    Start the face recognition via the webcam
+    """
     # Get a reference to webcam #0 (the default one)
-    video_capture = cv2.VideoCapture(0)
+    video_capture = cv2.VideoCapture(CAMERA_DEVICE_ID)
 
     # Create arrays of known face encodings and their names
     known_face_encodings = list(database.values())
     known_face_names = list(database.keys())
 
-    while True:
+    while video_capture.isOpened():
         # Grab a single frame of video
-        ret, frame = video_capture.read()
+        ok, frame = video_capture.read()
+        if not ok:
+            logging.error("Could not read frame from camera. Stopping video capture.")
+            break
 
         # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
         rgb_frame = frame[:, :, ::-1]
