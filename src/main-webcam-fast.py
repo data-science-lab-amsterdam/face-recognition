@@ -1,10 +1,8 @@
-#################################################################################
+#########################################################
 #
-# Face detection via the webcam
+# Simple but faster version
 #
-# ToDo: implement multi-threading (one for camera, one for frame processing) instead of processing every other frame
-#
-#################################################################################
+#########################################################
 
 import face_recognition
 import cv2

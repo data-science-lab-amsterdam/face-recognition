@@ -1,3 +1,9 @@
+#########################################################
+#
+# 'Advanced' and multi-threaded version
+#
+#########################################################
+
 import logging
 import argparse
 from detector import DetectionApp
@@ -32,10 +38,3 @@ app.start()
 
 app.stop()
 
-import speech
-speech.say('Hola mundo', 'es_ES')
-
-import pyttsx3
-engine = pyttsx3.init()
-engine.say('Good morning.')
-engine.runAndWait()
