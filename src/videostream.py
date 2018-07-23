@@ -25,6 +25,7 @@ class WebcamVideoStream:
         """
         start the thread to read frames from the video stream
         """
+        self.stopped = False
         threading.Thread(target=self._update, args=()).start()
         if self.count_fps:
             self.fps.start()

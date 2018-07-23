@@ -1,82 +1,110 @@
 import face_recognition
 import cv2
+import numpy as np
 import glob
 import os
 import logging
 
-IMAGES_PATH = './images'
+IMAGES_PATH = './images'  # put your reference images in here
 CAMERA_DEVICE_ID = 0
+MAX_DISTANCE = 0.6  # increase to make recognition less strict, decrease to make more strict
+
+
+def get_face_embeddings_from_image(image, convert_to_rgb=False):
+    """
+    Take a raw image and run both the face detection and face embedding model on it
+    """
+    # Convert from BGR to RGB if needed
+    if convert_to_rgb:
+        image = image[:, :, ::-1]
+
+    # run the face detection model to find face locations
+    face_locations = face_recognition.face_locations(image)
+
+    # run the embedding model to get face embeddings for the supplied locations
+    face_encodings = face_recognition.face_encodings(image, face_locations)
+
+    return face_locations, face_encodings
 
 
 def setup_database():
     """
-    Load anchor images and create a database of their face encodings
+    Load reference images and create a database of their face encodings
     """
     database = {}
 
-    # load all the images of individuals to recognize into the database
+    # load all the images of people to recognize into the database
     for filename in glob.glob(os.path.join(IMAGES_PATH, '*.jpg')):
         # load image
-        image = face_recognition.load_image_file(filename)
+        image_rgb = face_recognition.load_image_file(filename)
+
         # use the name in the filename as the identity key
         identity = os.path.splitext(os.path.basename(filename))[0].split('-')[0]
-        # detect faces and get the model encoding of the first face
-        database[identity] = face_recognition.face_encodings(image)[0]
+
+        # get the face encoding and link it to the identity
+        locations, encodings = get_face_embeddings_from_image(image_rgb)
+        database[identity] = encodings[0]
 
     return database
 
 
-# This is a super simple (but slow) example of running face recognition on live video from your webcam.
-# There's a second example that's a little more complicated but runs faster.
+def paint_detected_face_on_image(frame, location, name=None):
+    """
+    Paint a rectangle around the face and write the name
+    """
+    # unpack the coordinates from the location tuple
+    top, right, bottom, left = location
 
-# PLEASE NOTE: This example requires OpenCV (the `cv2` library) to be installed only to read from your webcam.
-# OpenCV is *not* required to use the face_recognition library. It's only required if you want to run this
-# specific demo. If you have trouble installing it, try any of the other demos that don't require it instead.
+    if name is None:
+        name = 'Unknown'
+        color = (0, 0, 255)  # red for unrecognized face
+    else:
+        color = (0, 128, 0)  # dark green for recognized face
 
-def run(database):
+    # Draw a box around the face
+    cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
+
+    # Draw a label with a name below the face
+    cv2.rectangle(frame, (left, bottom - 35), (right, bottom), color, cv2.FILLED)
+    cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 1)
+
+
+def run_face_recognition(database):
     """
     Start the face recognition via the webcam
     """
-    # Get a reference to webcam #0 (the default one)
+    # Open a handler for the camera
     video_capture = cv2.VideoCapture(CAMERA_DEVICE_ID)
 
-    # Create arrays of known face encodings and their names
+    # the face_recognitino library uses keys and values of your database separately
     known_face_encodings = list(database.values())
     known_face_names = list(database.keys())
 
     while video_capture.isOpened():
-        # Grab a single frame of video
+        # Grab a single frame of video (and check if it went ok)
         ok, frame = video_capture.read()
         if not ok:
             logging.error("Could not read frame from camera. Stopping video capture.")
             break
 
-        # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
-        rgb_frame = frame[:, :, ::-1]
+        # run detection and embedding models
+        face_locations, face_encodings = get_face_embeddings_from_image(frame, convert_to_rgb=True)
 
-        # Find all the faces and face enqcodings in the frame of video
-        face_locations = face_recognition.face_locations(rgb_frame)
-        face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+        # Loop through each face in this frame of video and see if there's a match
+        for location, face_encoding in zip(face_locations, face_encodings):
 
-        # Loop through each face in this frame of video
-        for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
-            # See if the face is a match for the known face(s)
-            matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+            # get the distances from this encoding to those of all reference images
+            distances = face_recognition.face_distance(known_face_encodings, face_encoding)
 
-            name = "Unknown"
+            # select the closest match (smallest distance) if it's below the threshold value
+            if np.any(distances <= MAX_DISTANCE):
+                best_match_idx = np.argmin(distances)
+                name = known_face_names[best_match_idx]
+            else:
+                name = None
 
-            # If a match was found in known_face_encodings, just use the first one.
-            if True in matches:
-                first_match_index = matches.index(True)
-                name = known_face_names[first_match_index]
-
-            # Draw a box around the face
-            cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-
-            # Draw a label with a name below the face
-            cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
-            font = cv2.FONT_HERSHEY_DUPLEX
-            cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
+            # put recognition info on the image
+            paint_detected_face_on_image(frame, location, name)
 
         # Display the resulting image
         cv2.imshow('Video', frame)
@@ -92,5 +120,5 @@ def run(database):
 
 # start program
 database = setup_database()
-run(database)
+run_face_recognition(database)
 

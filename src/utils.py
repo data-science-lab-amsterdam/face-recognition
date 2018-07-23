@@ -15,6 +15,7 @@ class FPSCounter:
         start the timer
         """
         self._start = datetime.now()
+        self._num_frames = 0
         return self
 
     def stop(self):

@@ -74,19 +74,20 @@ class DetectionApp:
                 logging.info("Stopped!")
                 break
 
-            # get face info from the face recognizer
-            if self.faces:
-                faces_data = self.face_recognizer.read()
-
-            if self.objects:
-                objects_data = self.object_recognizer.read()
-
             # get frame rates
             fps_data = {
                 'webcam': self.video_stream.get_fps(),
-                'face_detection': self.face_recognizer.get_fps(),
                 'main': self.fps_counter.get_fps()
             }
+
+            # get face info from the face recognizer
+            if self.faces:
+                faces_data = self.face_recognizer.read()
+                fps_data['face_detection'] = self.face_recognizer.get_fps()
+
+            if self.objects:
+                objects_data = self.object_recognizer.read()
+                fps_data['object_detection'] = self.object_recognizer.get_fps()
 
             if self.config['display']:
                 # show face information on the frame
@@ -109,21 +110,20 @@ class DetectionApp:
             self.fps_counter.update()
 
             logging.info('Camera fps: {}'.format(fps_data['webcam']))
-            logging.info('Recognition fps: {}'.format(fps_data['face_detection']))
+            if self.faces:
+                logging.info('Face detection fps: {}'.format(fps_data['face_detection']))
+            if self.objects:
+                logging.info('Object detection fps: {}'.format(fps_data['object_detection']))
             logging.info('Main fps: {}'.format(fps_data['main']))
 
         self.stop()
 
     def stop(self):
         self.video_stream.stop()
-        try:
+        if self.faces:
             self.face_recognizer.stop()
-        except KeyError:
-            pass
-        try:
+        if self.objects:
             self.object_recognizer.stop()
-        except KeyError:
-            pass
         self.fps_counter.stop()
 
     @staticmethod
