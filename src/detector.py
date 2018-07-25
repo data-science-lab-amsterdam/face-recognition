@@ -180,6 +180,8 @@ class DetectionApp:
 
 class FaceRecognizer:
 
+    MAX_DISTANCE = 0.6
+
     def __init__(self, image_path, count_fps=False):
         self.image_path = image_path
         self.stopped = False
@@ -255,12 +257,15 @@ class FaceRecognizer:
 
         face_data = []
         for location, encoding in zip(face_locations, face_encodings):
-            matches = face_recognition.compare_faces(self.known_face_encodings, encoding)
 
-            # If a match was found in known_face_encodings, just use the first one.
-            if True in matches:
-                first_match_index = matches.index(True)
-                identity = self.known_face_names[first_match_index]
+            # get the distances from this encoding to those of all reference images
+            distances = face_recognition.face_distance(self.known_face_encodings, encoding)
+
+            # select the closest match (smallest distance) if it's below the threshold value
+            if np.any(distances <= self.MAX_DISTANCE):
+                best_match_idx = np.argmin(distances)
+                identity = self.known_face_names[best_match_idx]
+                logging.info("Face recognized: {}".format(identity))
             else:
                 identity = None
 
