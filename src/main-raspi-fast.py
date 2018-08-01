@@ -18,24 +18,64 @@ CAMERA_DEVICE_ID = 0
 MAX_DISTANCE = 0.6
 
 
+def get_face_embeddings_from_image(image, convert_to_rgb=False):
+    """
+    Take a raw image and run both the face detection and face embedding model on it
+    """
+    # Convert from BGR to RGB if needed
+    if convert_to_rgb:
+        image = image[:, :, ::-1]
+
+    # run the face detection model to find face locations
+    face_locations = face_recognition.face_locations(image)
+
+    # run the embedding model to get face embeddings for the supplied locations
+    face_encodings = face_recognition.face_encodings(image, face_locations)
+
+    return face_locations, face_encodings
+
+
 def setup_database():
     """
-    Load anchor images and create a database of their face encodings
+    Load reference images and create a database of their face encodings
     """
     database = {}
 
-    # load all the images of individuals to recognize into the database
+    # load all the images of people to recognize into the database
     for filename in glob.glob(os.path.join(IMAGES_PATH, '*.jpg')):
         # load image
-        image = face_recognition.load_image_file(filename)
+        image_rgb = face_recognition.load_image_file(filename)
 
         # use the name in the filename as the identity key
         identity = os.path.splitext(os.path.basename(filename))[0].split('-')[0]
 
-        # detect faces and get the model encoding of the first face (there should be only 1 face in the anchor images)
-        database[identity] = face_recognition.face_encodings(image)[0]
+        # get the face encoding and link it to the identity
+        locations, encodings = get_face_embeddings_from_image(image_rgb)
+        database[identity] = encodings[0]
+        logging.info("Image of '{}' added to database".format(identity))
 
     return database
+
+
+def paint_detected_face_on_image(frame, location, name=None):
+    """
+    Paint a rectangle around the face and write the name
+    """
+    # unpack the coordinates from the location tuple
+    top, right, bottom, left = location
+
+    if name is None:
+        name = 'Unknown'
+        color = (0, 0, 255)  # red for unrecognized face
+    else:
+        color = (0, 128, 0)  # dark green for recognized face
+
+    # Draw a box around the face
+    cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
+
+    # Draw a label with a name below the face
+    cv2.rectangle(frame, (left, bottom - 35), (right, bottom), color, cv2.FILLED)
+    cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 1)
 
 
 def run(database, resolution=(1280, 720), framerate=20):
@@ -102,11 +142,17 @@ def run(database, resolution=(1280, 720), framerate=20):
             bottom *= 4
             left *= 4
 
+            if name is None:
+                name = 'Unknown'
+                color = (0, 0, 255)  # red
+            else:
+                color = (0, 128, 0)  # dark green
+
             # Draw a box around the face
-            cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+            cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
 
             # Draw a label with a name below the face
-            cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
+            cv2.rectangle(frame, (left, bottom - 35), (right, bottom), color, cv2.FILLED)
             font = cv2.FONT_HERSHEY_DUPLEX
             cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
