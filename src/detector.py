@@ -78,7 +78,7 @@ class DetectionApp:
         - (optional) face recognition starts in a new thread
         - (optional) object recognition starts in a new thread
         - The main thread
-          - 
+          -
         :return:
         """
         self.video_stream.start()
