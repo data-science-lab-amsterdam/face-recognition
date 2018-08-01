@@ -6,7 +6,6 @@ import logging
 import threading
 import numpy as np
 import tensorflow as tf
-from videostream import WebcamVideoStream
 from utils import FPSCounter
 from object_detection.utils import label_map_util
 from object_detection.utils import visualization_utils as vis_util
@@ -50,16 +49,38 @@ class DetectionApp:
         self.faces = self.config['faces']['detect']
         self.objects = self.config['objects']['detect']
 
-        self.video_stream = WebcamVideoStream(device_id=self.config['camera_device_id'], display=False, count_fps=True)
+        # use the appropriate videostreamer depending on the platform/camera to use
+        if self.config['camera_device_id'] == 'pi':
+            # only import if needed because it requires specific packages!
+            from picamvideostream import PicamVideoStream
+
+            self.video_stream = PicamVideoStream(display=False, count_fps=True)
+        else:
+            # only import if needed because it requires specific packages!
+            from webcamvideostream import WebcamVideoStream
+
+            self.video_stream = WebcamVideoStream(device_id=self.config['camera_device_id'], display=False, count_fps=True)
+
+        # set face recorgnition
         if self.faces:
             self.face_recognizer = FaceRecognizer(self.config['faces']['anchor_images_path'], count_fps=True)
 
+        # set object recognition
         if self.objects:
             self.object_recognizer = ObjectRecognizer(count_fps=True)
 
         self.fps_counter = FPSCounter()
 
     def start(self):
+        """
+        Start the detection process:
+        - video stream starts in a new thread
+        - (optional) face recognition starts in a new thread
+        - (optional) object recognition starts in a new thread
+        - The main thread
+          - 
+        :return:
+        """
         self.video_stream.start()
         if self.faces:
             self.face_recognizer.start(frame_reader=self.video_stream.read, shrink_frames=self.config['faces']['shrink_frames'])
@@ -128,6 +149,9 @@ class DetectionApp:
 
     @staticmethod
     def paint_faces_data(frame, faces_data):
+        """
+        Paint boxes and labels/names around detected faces
+        """
         for face in faces_data:
             (top, right, bottom, left) = face['location']
 
@@ -166,6 +190,9 @@ class DetectionApp:
 
     @staticmethod
     def paint_fps_data(frame, fps_data):
+        """
+        Show fps on frame
+        """
         frame_height, frame_width, _ = frame.shape
         text = 'running @ {:.0f} fps'.format(fps_data['main'])
         cv2.putText(img=frame,

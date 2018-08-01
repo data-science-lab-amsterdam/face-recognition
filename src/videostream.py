@@ -4,15 +4,15 @@ from utils import FPSCounter
 import logging
 
 
-class WebcamVideoStream:
-    def __init__(self, device_id=0, display=False, count_fps=False, decorator_func=None):
+class BaseVideoStream:
+    """
+    Abstract base class
+    """
+    def __init__(self, display=False, count_fps=False):
         """
         initialize the video camera stream and read the first frame from the stream
         """
         self.display = display
-        self.stream = cv2.VideoCapture(device_id)
-        (self.grabbed, self.frame) = self.stream.read()
-        self.decorator_func = decorator_func
 
         # initialize the variable used to indicate if the thread should be stopped
         self.stopped = False
@@ -69,7 +69,6 @@ class WebcamVideoStream:
         """
         logging.info("Webcam video stream stopped")
         self.stopped = True
-        self.stream.release()
 
         if self.count_fps:
             self.fps.stop()
