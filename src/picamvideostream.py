@@ -13,7 +13,7 @@ class PicamVideoStream(BaseVideoStream):
     """
     def __init__(self, display=False, count_fps=True, resolution=(1280, 720), framerate=20):
         # call parent constructor
-        super().__init__(self, display, count_fps)
+        super().__init__(display, count_fps)
 
         # initialize the camera and stream
         self.camera = PiCamera()
