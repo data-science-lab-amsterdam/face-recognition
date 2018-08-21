@@ -23,7 +23,8 @@ class PicamVideoStream(BaseVideoStream):
         self.stream = self.camera.capture_continuous(self.raw_capture, format="bgr", use_video_port=True)
 
         # initial frame
-        self.frame = None
+        self.frame = next(self.stream).array
+        self.raw_capture.truncate(0)
         self.grabbed = True
 
     def _update(self):
@@ -44,6 +45,10 @@ class PicamVideoStream(BaseVideoStream):
             # this stops the thread
             if self.stopped:
                 return
+
+            # update fps counter
+            if self.count_fps:
+                self.fps.update()
 
     def stop(self):
         """

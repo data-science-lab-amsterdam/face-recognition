@@ -281,7 +281,7 @@ class FaceRecognizer:
             # load image
             image = face_recognition.load_image_file(filename)
             # use the name in the filename as the identity key
-            identity = os.path.splitext(os.path.basename(filename))[0].split('-')[0]
+            identity = os.path.splitext(os.path.basename(str(filename)))[0].split('-')[0]
             # detect faces and get the model encoding of the first face
             self.database[identity] = face_recognition.face_encodings(image)[0]
             logging.info("Image of '{}' added to database".format(identity))

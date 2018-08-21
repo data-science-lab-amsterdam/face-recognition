@@ -128,6 +128,7 @@ def run(database, resolution=(1280, 720), framerate=20):
                     best_match_idx = np.argmin(distances)
                     name = known_face_names[best_match_idx]
                 else:
+                    logging.info("No match found. Smallest distance: {}".format(np.min(distances)))
                     name = None
 
                 face_names.append(name)
@@ -171,5 +172,6 @@ def run(database, resolution=(1280, 720), framerate=20):
 
 
 # run main script
+logging.basicConfig(level=logging.INFO)
 database = setup_database()
 run(database)
