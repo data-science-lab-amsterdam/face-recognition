@@ -9,7 +9,7 @@ import argparse
 from detector import DetectionApp
 
 
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] (%(threadName)-9s) %(message)s')
+#logging.basicConfig(level=logging.INFO, format='[%(levelname)s] (%(threadName)-9s) %(message)s')
 
 # parse arguments
 # ap = argparse.ArgumentParser()
@@ -20,8 +20,8 @@ logging.basicConfig(level=logging.INFO, format='[%(levelname)s] (%(threadName)-9
 
 config = {
     'display': True,
-    'speak': False,
-    'camera_device_id': 0,
+    'speak': True,
+    'camera_device_id': 'network',
     'faces': {
         'detect': True,
         'shrink_frames': True,
@@ -36,5 +36,5 @@ config = {
 app = DetectionApp(config=config)
 app.start()
 
-app.stop()
+# app.stop()
 

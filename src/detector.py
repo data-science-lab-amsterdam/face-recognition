@@ -1,9 +1,11 @@
 import face_recognition
 from pathlib import Path
+from datetime import datetime, timedelta
 import cv2
 import os
 import logging
 import threading
+import subprocess
 import numpy as np
 import tensorflow as tf
 from utils import FPSCounter
@@ -55,11 +57,20 @@ class DetectionApp:
             from picamvideostream import PicamVideoStream
 
             self.video_stream = PicamVideoStream(display=False, count_fps=True)
+        elif self.config['camera_device_id'] == 'network':
+            # only import if needed because it requires specific packages!
+            from networkvideostream import NetworkVideoStream
+
+            self.video_stream = NetworkVideoStream(url='http://192.168.1.163:8554/stream/cam_pic_new.php',
+                                                   display=False,
+                                                   count_fps=True)
         else:
             # only import if needed because it requires specific packages!
             from webcamvideostream import WebcamVideoStream
 
-            self.video_stream = WebcamVideoStream(device_id=self.config['camera_device_id'], display=False, count_fps=True)
+            self.video_stream = WebcamVideoStream(device_id=self.config['camera_device_id'],
+                                                  display=False,
+                                                  count_fps=True)
 
         # set face recorgnition
         if self.faces:
@@ -70,6 +81,9 @@ class DetectionApp:
             self.object_recognizer = ObjectRecognizer(count_fps=True)
 
         self.fps_counter = FPSCounter()
+
+        # to prevent talking too much
+        self.last_speech = datetime.now() - timedelta(minutes=10)
 
     def start(self):
         """
@@ -128,6 +142,13 @@ class DetectionApp:
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
+            if self.config['speak']:
+                if self.faces:
+                    self._talk_about(about='faces', data=faces_data)
+
+                if self.objects:
+                    self._talk_about(about='objects', data=objects_data)
+
             self.fps_counter.update()
 
             logging.info('Camera fps: {}'.format(fps_data['webcam']))
@@ -146,6 +167,35 @@ class DetectionApp:
         if self.objects:
             self.object_recognizer.stop()
         self.fps_counter.stop()
+
+    def _talk_about(self, about, data):
+        if not data:
+            return
+
+        if about == 'faces':
+            print(data)
+            if len(data) == 1:
+                name = data[0]['identity']
+                if name is None:
+                    text = "Hello. I haven't seen you before. Welcome!"
+                else:
+                    text = "Hello {}".format(name)
+            elif len(data) <= 3:
+                names = ', '.join([face['identity'] or 'stranger' for face in data])
+                text = 'Hello {}'.format(names)
+            elif len(data) > 3:
+                text = 'Hi everybody. What a crowd! Why don\'t you get back to work?'
+            print(text)
+            self._say_prudent(text)
+
+    def _say_prudent(self, text):
+        if datetime.now() - self.last_speech > timedelta(seconds=5):
+            DetectionApp._say(text)
+            self.last_speech = datetime.now()
+
+    @staticmethod
+    def _say(text):
+        subprocess.call(['say', text])
 
     @staticmethod
     def paint_faces_data(frame, faces_data):

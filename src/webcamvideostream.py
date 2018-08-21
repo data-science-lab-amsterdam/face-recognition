@@ -11,7 +11,7 @@ class WebcamVideoStream(BaseVideoStream):
     """
 
     def __init__(self, device_id=0, display=False, count_fps=False):
-        # parent xonstructor
+        # parent constructor
         super().__init__(display, count_fps)
 
         # define stream and first read
