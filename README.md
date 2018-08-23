@@ -15,6 +15,17 @@ Hoe krijg je het aan de praat?
 * Maak een environment aan en installeer de requirements. Let op: voordat je dlib kunt installeren moet je eerst e.e.a. al geinstalleerd hebben. Zie: https://www.pyimagesearch.com/2018/01/22/install-dlib-easy-complete-guide/
 * git clone de repo
 * Plaats in de map ./images van elk persoon één foto
-* run main.py
+* run main-advanced.py of main-webcam-simple.py
 
 *N.B. Ivm een bug in OpenCV op MacOS sluit het camera window niet!*
+
+## RasPi camera op kantoor
+
+Hoe gebruik je de Raspberry Pi met camera die op kantoor hangt? Hier een kleine handleiding:
+* Zet de RasPi aan (power-kabel erin, en de stekker :))
+* Een opstartscript zorgt ervoor dat de camera gaat draaien en het beeld over het netwerk verzend
+* Check op http://192.168.1.163:8554/stream/ of je beeld hebt. Indien niet:
+    * Open een terminal en doe `ssh pi:Wodanfabriek23C@192.168.1.163`
+    * `./start-picam.sh`
+    * Als ie het nu ook niet doet heb jij hem helaas gesloopt...
+* run `main-advanced.py -d -s -n` (-n is voor network mode, -d is voor beeld (display) en -s is voor geluid (sound))

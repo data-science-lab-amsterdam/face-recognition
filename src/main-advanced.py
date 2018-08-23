@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.INFO, format='[%(levelname)s] (%(threadName)-9
 ap = argparse.ArgumentParser()
 ap.add_argument('-d', '--display', action='store_true', default=False,	help='Use to display video frames')
 ap.add_argument('-s', '--sound', action='store_true', default=False,	help='Use to speak about recognized results')
+ap.add_argument('-n', '--network-mode', dest='network_mode', action='store_true', default=False, help='Use to use a network video feed instead of built-in camera')
 args = ap.parse_args()
 
 config = {
