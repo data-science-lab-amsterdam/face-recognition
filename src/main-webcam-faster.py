@@ -9,18 +9,17 @@ import argparse
 from detector import DetectionApp
 
 
-#logging.basicConfig(level=logging.INFO, format='[%(levelname)s] (%(threadName)-9s) %(message)s')
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] (%(threadName)-9s) %(message)s')
 
 # parse arguments
-# ap = argparse.ArgumentParser()
-# ap.add_argument('-d', '--display', action='store_true', default=False,	help='Use to display video frames')
-# args = ap.parse_args()
-#
-# FLG_DISPLAY = args.display
+ap = argparse.ArgumentParser()
+ap.add_argument('-d', '--display', action='store_true', default=False,	help='Use to display video frames')
+ap.add_argument('-s', '--sound', action='store_true', default=False,	help='Use to speak about recognized results')
+args = ap.parse_args()
 
 config = {
-    'display': True,
-    'speak': True,
+    'display': args.display,
+    'speak': args.sound,
     'camera_device_id': 'network',
     'faces': {
         'detect': True,
@@ -33,8 +32,7 @@ config = {
     }
 }
 
-app = DetectionApp(config=config)
-app.start()
+with DetectionApp(config=config) as app:
+    app.start()
 
-# app.stop()
 

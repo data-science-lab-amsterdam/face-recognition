@@ -7,6 +7,7 @@ import logging
 import threading
 import subprocess
 import numpy as np
+from collections import deque
 import tensorflow as tf
 from utils import FPSCounter
 from object_detection.utils import label_map_util
@@ -75,6 +76,7 @@ class DetectionApp:
         # set face recorgnition
         if self.faces:
             self.face_recognizer = FaceRecognizer(self.config['faces']['anchor_images_path'], count_fps=True)
+            self._seen_faces = deque(maxlen=20)
 
         # set object recognition
         if self.objects:
@@ -93,7 +95,6 @@ class DetectionApp:
         - (optional) object recognition starts in a new thread
         - The main thread
           -
-        :return:
         """
         self.video_stream.start()
         if self.faces:
@@ -169,32 +170,47 @@ class DetectionApp:
         self.fps_counter.stop()
 
     def _talk_about(self, about, data):
+        """
+        Say some stuff about detected faces or objects
+        """
         if not data:
             return
 
         if about == 'faces':
-            print(data)
-            if len(data) == 1:
-                name = data[0]['identity']
-                if name is None:
-                    text = "Hello. I haven't seen you before. Welcome!"
-                else:
-                    text = "Hello {}".format(name)
-            elif len(data) <= 3:
-                names = ', '.join([face['identity'] or 'stranger' for face in data])
+            for face in data:
+                self._seen_faces.append(face['identity'])
+
+            all_people = list(set(self._seen_faces))
+            all_known_people = [name for name in all_people if name is not None]
+
+            if len(all_known_people) == 0:
+                text = "Hello. I haven't seen you before. Welcome!"
+            elif len(all_known_people) == 1:
+                text = "Hello {}".format(all_known_people[0])
+            elif len(all_people) <= 3:
+                all_but_last = ', '.join([name or 'stranger' for name in all_people[:-1]])
+                last = all_people[-1] or 'stranger'
+                names = ' and '.join([all_but_last, last])
                 text = 'Hello {}'.format(names)
-            elif len(data) > 3:
+            elif len(all_known_people) > 3:
                 text = 'Hi everybody. What a crowd! Why don\'t you get back to work?'
-            print(text)
             self._say_prudent(text)
 
     def _say_prudent(self, text):
+        """
+        Say something unless you already just did
+        """
         if datetime.now() - self.last_speech > timedelta(seconds=5):
             DetectionApp._say(text)
             self.last_speech = datetime.now()
+            self._seen_faces.clear()
 
     @staticmethod
     def _say(text):
+        """
+        Actually make a sound
+        Btw this implementation only works on a mac!
+        """
         subprocess.call(['say', text])
 
     @staticmethod
@@ -253,6 +269,15 @@ class DetectionApp:
                     color=(0, 0, 255),
                     thickness=1
                     )
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self):
+        self.stop()
+
+
+############################## END CLASS ####################################
 
 
 class FaceRecognizer:
@@ -374,6 +399,9 @@ class FaceRecognizer:
 
     def __del__(self):
         self.stop()
+
+
+############################## END CLASS ####################################
 
 
 class ObjectRecognizer:
