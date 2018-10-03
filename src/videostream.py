@@ -1,10 +1,12 @@
+from abc import ABC, abstractmethod
 import cv2
 import threading
+import numpy as np
 from utils import FPSCounter
 import logging
 
 
-class BaseVideoStream:
+class BaseVideoStream(ABC):
     """
     Abstract base class
     """
@@ -32,28 +34,12 @@ class BaseVideoStream:
 
         return self
 
+    @abstractmethod
     def _update(self):
         """
-        keep looping infinitely until the thread is stopped
+        should be implemented by child class
         """
-        while True:
-            # if the thread indicator variable is set, stop the thread
-            if self.stopped:
-                return  # this also ends the thread
-
-            # otherwise, read the next frame from the stream
-            (self.grabbed, self.frame) = self.stream.read()
-
-            if self.display:
-                # Display the resulting image
-                cv2.imshow('Video', self.frame)
-
-                # Hit 'q' on the keyboard to quit!
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    self.stop()
-
-            if self.count_fps:
-                self.fps.update()
+        pass
 
     def read(self):
         """
@@ -61,6 +47,7 @@ class BaseVideoStream:
         """
         if self.stopped:
             return False, False
+
         return self.grabbed, self.frame
 
     def stop(self):
@@ -84,6 +71,21 @@ class BaseVideoStream:
             logging.error("No FPSCounter set")
             return None
         return self.fps.get_fps()
+
+    @staticmethod
+    def to_jpeg_bytes(thing):
+        if isinstance(thing, str):
+            # filename: just read the image contents
+            with open(thing, 'rb') as f:
+                return f.read()
+        elif isinstance(thing, np.ndarray):
+            # pixel array: encode to jpeg
+            ok, jpg = cv2.imencode('.jpg', thing)
+            if not ok:
+                raise ValueError('Could not encode object to jpg')
+            return jpg.tobytes()
+        else:
+            raise ValueError("Cannot encode object of type {} to jpeg".format(type(thing)))
 
     def __del__(self):
         self.stop()
