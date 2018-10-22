@@ -11,13 +11,22 @@ De gezichtsherkenning werkt als volgt:
 * We hebben een kleine database met de feature vectors van alle DSL medewerkers
 * De beste match wordt gevonden dmv een simpele distance metric
 
-Hoe krijg je het aan de praat?
+## Installeren
 * Maak een environment aan en installeer de requirements. Let op: voordat je dlib kunt installeren moet je eerst e.e.a. al geinstalleerd hebben. Zie: https://www.pyimagesearch.com/2018/01/22/install-dlib-easy-complete-guide/
 * git clone de repo
 * Plaats in de map ./images van elk persoon één foto
-* run main-advanced.py of main-webcam-simple.py
 
-*N.B. Ivm een bug in OpenCV op MacOS sluit het camera window niet!*
+### Runnen
+Je kunt op verschillende
+* ```python src/main-webcam-simple.py```
+  <br>Toont het beeld in een apart window. Deze is traag en niet aan te bevelen.
+  <br>*N.B. Ivm een bug in OpenCV op MacOS sluit het camera window niet!*
+* ```python src/main-advanced.py -d -s```
+  <br>De ```-d``` zorgt voor een window met beeld
+  <br>De ```-s``` zorgt voor geluid
+* ```python src/dash-app.py```
+  <br>Voor een leuk dashboardje, te zien via http://127.0.0.1:8234/
+
 
 ## RasPi camera op kantoor
 
