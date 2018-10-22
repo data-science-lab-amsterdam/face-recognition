@@ -23,28 +23,29 @@ class NetworkVideoStream(BaseVideoStream):
         except Exception as e:
             logging.error("Could not connect to network camera feed")
             raise e
-        self.bytestream = bytes()
-        self.streamer = connection.iter_content(chunk_size=10*1024)
+
+        self._bytestream = bytes()
+        self._streamer = connection.iter_content(chunk_size=10*1024)
         self._get_first_frame()
 
     def _get_first_frame(self):
         """
         Ugly solution, but just to get the first frame
         """
-        for chunk in self.streamer:
+        for chunk in self._streamer:
             # if the thread indicator variable is set, stop the thread
             if self.stopped:
                 return  # this also ends the thread
 
             # add chunk to bytestream
-            self.bytestream += chunk
+            self._bytestream += chunk
 
             # find start & end bytes defining jpg image
-            jpg_start = self.bytestream.find(b'\xff\xd8')
-            jpg_end = self.bytestream.find(b'\xff\xd9')
+            jpg_start = self._bytestream.find(b'\xff\xd8')
+            jpg_end = self._bytestream.find(b'\xff\xd9')
             if jpg_start != -1 and jpg_end != -1:
                 # jpg image found: set it as the current frame
-                jpg = self.bytestream[jpg_start:jpg_end + 2]
+                jpg = self._bytestream[jpg_start:jpg_end + 2]
                 (self.grabbed, self.frame) = (True, cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_COLOR))
                 return
 
@@ -52,24 +53,24 @@ class NetworkVideoStream(BaseVideoStream):
         """
         keep looping infinitely until the thread is stopped
         """
-        for chunk in self.streamer:
+        for chunk in self._streamer:
             # if the thread indicator variable is set, stop the thread
             if self.stopped:
                 return  # this also ends the thread
 
             # add chunk to bytestream
-            self.bytestream += chunk
+            self._bytestream += chunk
 
             # find start & end bytes defining jpg image
-            jpg_start = self.bytestream.find(b'\xff\xd8')
-            jpg_end = self.bytestream.find(b'\xff\xd9')
+            jpg_start = self._bytestream.find(b'\xff\xd8')
+            jpg_end = self._bytestream.find(b'\xff\xd9')
             if jpg_start != -1 and jpg_end != -1:
                 # jpg image found: set it as the current frame
-                jpg = self.bytestream[jpg_start:jpg_end + 2]
+                jpg = self._bytestream[jpg_start:jpg_end + 2]
                 (self.grabbed, self.frame) = (True, cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_COLOR))
 
                 # truncate bytestream: remove everything before last image
-                self.bytestream = self.bytestream[jpg_end + 2:]
+                self._bytestream = self._bytestream[jpg_end + 2:]
 
                 if self.display:
                     # Display the resulting image

@@ -18,10 +18,14 @@ ap.add_argument('-s', '--sound', action='store_true', default=False,	help='Use t
 ap.add_argument('-n', '--network-mode', dest='network_mode', action='store_true', default=False, help='Use to use a network video feed instead of built-in camera')
 args = ap.parse_args()
 
+logging.info('Running with display mode {}'.format('on' if args.display else 'off'))
+logging.info('Running with sound mode {}'.format('on' if args.sound else 'off'))
+logging.info('Running with network mode {}'.format('on' if args.network_mode else 'off'))
+
 config = {
     'display': args.display,
     'speak': args.sound,
-    'camera_device_id': 'network',
+    'camera_device_id': ('network' if args.network_mode else 0),
     'faces': {
         'detect': True,
         'shrink_frames': True,

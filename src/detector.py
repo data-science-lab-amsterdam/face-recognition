@@ -54,42 +54,16 @@ class DetectionApp:
         self.faces = self.config['faces']['detect']
         self.objects = self.config['objects']['detect']
 
-        # use the appropriate videostreamer depending on the platform/camera to use
-        if self.config['camera_device_id'] == 'pi':
-
-            # Raspberry Pi camera as video source
-            # only import if needed because it requires specific packages!
-            from picamvideostream import PicamVideoStream
-            self.video_stream = PicamVideoStream(display=False,
-                                                 count_fps=True
-                                                 )
-        elif self.config['camera_device_id'] == 'network':
-
-            # External camera through network stream as video source
-            # only import if needed because it requires specific packages!
-            from networkvideostream import NetworkVideoStream
-            self.video_stream = NetworkVideoStream(url=self.config['camera_stream_url'],
-                                                   display=False,
-                                                   count_fps=True
-                                                   )
-        else:
-
-            # Local webcam as video source
-            # only import if needed because it requires specific packages!
-            from webcamvideostream import WebcamVideoStream
-
-            self.video_stream = WebcamVideoStream(device_id=self.config['camera_device_id'],
-                                                  display=False,
-                                                  count_fps=True
-                                                  )
+        self.video_stream = None
+        self.set_video_source()
 
         # set face recognition
-        if self.faces:
+        if True or self.faces:
             self.face_recognizer = FaceRecognizer(self.config['faces']['anchor_images_path'], count_fps=True)
             self._seen_faces = deque(maxlen=20)
 
         # set object recognition
-        if self.objects:
+        if True or self.objects:
             self.object_recognizer = ObjectRecognizer(count_fps=True)
 
         self.fps_counter = FPSCounter()
@@ -97,7 +71,29 @@ class DetectionApp:
         # to prevent talking too much
         self.last_speech = datetime.now() - timedelta(minutes=10)
 
-    def start(self, callback_faces=None, callback_objects=None):
+    def set_video_source(self):
+        """
+        Use the appropriate videostreamer depending on the platform/camera to use
+        """
+        if self.config['camera_device_id'] == 'pi':
+            # Raspberry Pi camera as video source
+            # only import if needed because it requires specific packages!
+            from raspicamera import RasPiCamera
+            self.video_stream = RasPiCamera()
+        elif self.config['camera_device_id'] == 'network':
+            # External camera through network stream as video source
+            # only import if needed because it requires specific packages!
+            from networkcamera import NetworkCamera
+            NetworkCamera.set_url(self.config['camera_stream_url'])
+            self.video_stream = NetworkCamera()
+        else:
+            # Local webcam as video source
+            # only import if needed because it requires specific packages!
+            from opencvcamera import OpencvCamera
+            OpencvCamera.set_video_source(self.config['camera_device_id'])
+            self.video_stream = OpencvCamera()
+
+    def start(self):
         """
         Start the detection process:
         - video stream starts in a new thread
@@ -110,95 +106,95 @@ class DetectionApp:
           - or speaks
         """
         self.stopped = False
-        self.video_stream.start()
+        #self.video_stream.start()
         if self.faces:
-            self.face_recognizer.start(frame_reader=self.video_stream.read, shrink_frames=self.config['faces']['shrink_frames'])
+            self.face_recognizer.start(frame_reader=self.video_stream.get_frame, shrink_frames=self.config['faces']['shrink_frames'])
         if self.objects:
-            self.object_recognizer.start(frame_reader=self.video_stream.read)
+            self.object_recognizer.start(frame_reader=self.video_stream.get_frame)
         self.fps_counter.start()
 
         while not self.stopped:
             # read a frame from the camera
-            ok, frame = self.video_stream.read()
-            if not ok:
-                logging.info("Stopped!")
-                break
+            frame = self.video_stream.get_frame()
 
-            # get frame rates
-            fps_data = {
-                'webcam': self.video_stream.get_fps(),
-                'main': self.fps_counter.get_fps()
+            data = {
+                'frame': frame,
+                'fps': {
+                    'main': self.fps_counter.get_fps()
+                },
+                'faces': [],
+                'objects': []
             }
 
             # get face info from the face recognizer
             if self.faces:
-                faces_data = self.face_recognizer.read()
-                fps_data['face_detection'] = self.face_recognizer.get_fps()
-                if callback_faces is not None:
-                    callback_faces(faces_data)
+                data['faces'] = self.face_recognizer.read()
+                data['fps']['face_detection'] = self.face_recognizer.get_fps()
 
             if self.objects:
-                objects_data = self.object_recognizer.read()
-                fps_data['object_detection'] = self.object_recognizer.get_fps()
-                if callback_objects is not None:
-                    callback_objects(objects_data)
-
-            if self.config['display']:
-                # show face information on the frame
-                if self.faces:
-                    DetectionApp.paint_faces_data(frame, faces_data)
-
-                # show object information on the frame
-                if self.objects:
-                    DetectionApp.paint_objects_data(frame, objects_data)
-
-                # show fps info on frame
-                DetectionApp.paint_fps_data(frame, fps_data)
-
-                # show the image
-                cv2.imshow('Video', frame)
-                # Hit 'q' on the keyboard to quit!
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-
-            if self.config['speak']:
-                if self.faces:
-                    self._talk_about(about='faces', data=faces_data)
-
-                if self.objects:
-                    self._talk_about(about='objects', data=objects_data)
+                data['objects'] = self.object_recognizer.read()
+                data['fps']['object_detection'] = self.object_recognizer.get_fps()
 
             self.fps_counter.update()
-
-            logging.debug('Camera fps: {}'.format(fps_data['webcam']))
-            if self.faces:
-                logging.debug('Face detection fps: {}'.format(fps_data['face_detection']))
-            if self.objects:
-                logging.debug('Object detection fps: {}'.format(fps_data['object_detection']))
-            logging.debug('Main fps: {}'.format(fps_data['main']))
+            self._handle_detection_data(data)
 
         self.stop()
 
-    def detection_generator(self, paint_data_on_frame=True):
-        self.stopped = False
-        self.video_stream.start()
+    def _handle_detection_data(self, data):
+        # show face information on the frame
         if self.faces:
-            self.face_recognizer.start(frame_reader=self.video_stream.read,
+            DetectionApp.paint_faces_data(data['frame'], data['faces'])
+
+        # show object information on the frame
+        if self.objects:
+            DetectionApp.paint_objects_data(data['frame'], data['objects'])
+
+        # show fps info on frame
+        DetectionApp.paint_fps_data(data['frame'], data['fps'])
+
+        self.current_data = data
+
+        if self.config['display']:
+            # show the image
+            cv2.imshow('Video', data['frame'])
+            if cv2.waitKey(1) & 0xFF == ord('q'):  # Hit 'q' on the keyboard to quit!
+                self.stop()
+
+        if self.config['speak']:
+            if self.faces:
+                self._talk_about(about='faces', data=data['faces'])
+
+            if self.objects:
+                self._talk_about(about='objects', data=data['objects'])
+
+        if self.faces:
+            logging.debug('Face detection fps: {}'.format(data['fps']['face_detection']))
+        if self.objects:
+            logging.debug('Object detection fps: {}'.format(data['fps']['object_detection']))
+        logging.debug('Main fps: {}'.format(data['fps']['main']))
+
+    def reset(self):
+        self.stop()
+        self.stopped = False
+
+    def detection_generator(self, paint_data_on_frame=True):
+        logging.info("initialising detection generator")
+        self.stopped = False
+
+        if self.faces:
+            self.face_recognizer.start(frame_reader=self.video_stream.get_frame,
                                        shrink_frames=self.config['faces']['shrink_frames'])
         if self.objects:
-            self.object_recognizer.start(frame_reader=self.video_stream.read)
+            self.object_recognizer.start(frame_reader=self.video_stream.get_frame)
+
         self.fps_counter.start()
 
         while not self.stopped:
             # read a frame from the camera
-            ok, frame = self.video_stream.read()
-            if not ok:
-                logging.info("Stopped!")
-                break
-
+            frame = self.video_stream.get_frame()
+            logging.debug("reading camera frame in detector loop")
             # get frame rates
             fps_data = {
-                'webcam': self.video_stream.get_fps(),
                 'main': self.fps_counter.get_fps()
             }
 
@@ -229,12 +225,12 @@ class DetectionApp:
 
             self.fps_counter.update()
 
-            logging.info("detector yielding frame")
+            logging.debug("detector yielding frame")
             yield frame, faces_data, objects_data, fps_data
 
     def stop(self):
         self.stopped = True
-        self.video_stream.stop()
+        #self.video_stream.stop()
         if self.faces:
             self.face_recognizer.stop()
         if self.objects:
@@ -345,7 +341,7 @@ class DetectionApp:
     def __enter__(self):
         return self
 
-    def __exit__(self):
+    def __exit__(self, exception_type, exception_value, traceback):
         self.stop()
 
 
@@ -402,10 +398,7 @@ class FaceRecognizer:
                 logging.info("Face detection stopped. Quitting thread...")
                 return
 
-            ok, frame = frame_reader()
-            if not ok:
-                logging.info("FaceRecognizer could not read frame. Stopping...")
-                return
+            frame = frame_reader()
 
             if shrink_frames:
                 # shrink frame to speedup recognition
@@ -562,10 +555,7 @@ class ObjectRecognizer:
                 logging.info("Object detection stopped. Quitting thread...")
                 return
 
-            ok, frame = frame_reader()
-            if not ok:
-                logging.info("ObjectsRecognizer could not read frame. Stopping...")
-                return
+            frame = frame_reader()
 
             if shrink_frames:
                 # shrink frame to speedup recognition

@@ -1,10 +1,5 @@
-from abc import ABC, abstractmethod
-import cv2
-import threading
-import numpy as np
-from utils import FPSCounter
-import logging
 
+import logging
 import time
 import threading
 
@@ -18,8 +13,8 @@ except ImportError:
 
 
 class CameraEvent(object):
-    """An Event-like class that signals all active clients when a new frame is
-    available.
+    """
+    An Event-like class that signals all active clients when a new frame is available.
     """
 
     def __init__(self):
@@ -32,7 +27,7 @@ class CameraEvent(object):
             # this is a new client
             # add an entry for it in the self.events dict
             # each entry has two elements, a threading.Event() and a timestamp
-            self.events[ident] = (threading.Event(), time.time())
+            self.events[ident] = [threading.Event(), time.time()]
         return self.events[ident][0].wait()
 
     def set(self):
@@ -60,7 +55,7 @@ class CameraEvent(object):
         self.events[get_ident()][0].clear()
 
 
-class BaseCamera(ABC):
+class BaseCamera:
     thread = None  # background thread that reads frames from camera
     frame = None  # current frame is stored here by background thread
     last_access = 0  # time of last client access to the camera
@@ -89,7 +84,18 @@ class BaseCamera(ABC):
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
     def get_frame(self):
-        """Return the current camera frame."""
+        """
+        Return the current camera frame
+        """
+        # reset the update thread if it's been closed
+        if BaseCamera.thread is None:
+            BaseCamera.thread = threading.Thread(target=self._thread)
+            BaseCamera.thread.start()
+
+            # wait until frames are available
+            while self.get_frame() is None:
+                time.sleep(0)
+
         BaseCamera.last_access = time.time()
 
         # wait for a signal from the camera thread
@@ -104,9 +110,14 @@ class BaseCamera(ABC):
         raise RuntimeError('Must be implemented by subclasses.')
 
     @classmethod
+    def stop(cls):
+        logging.info("Closing the frames iterator")
+        cls.frames().close()
+
+    @classmethod
     def _thread(cls):
         """Camera background thread."""
-        print('Starting camera thread.')
+        logging.info('Starting camera thread.')
         frames_iterator = cls.frames()
         for frame in frames_iterator:
             BaseCamera.frame = frame
@@ -117,95 +128,8 @@ class BaseCamera(ABC):
             # the last 10 seconds then stop the thread
             if time.time() - BaseCamera.last_access > 10:
                 frames_iterator.close()
-                print('Stopping camera thread due to inactivity.')
+                logging.warning('Stopping camera thread due to inactivity.')
                 break
 
         # end the thread
         BaseCamera.thread = None
-
-
-class BaseVideoStream(ABC):
-    """
-    Abstract base class
-    """
-    def __init__(self, display=False, count_fps=False):
-        """
-        initialize the video camera stream and read the first frame from the stream
-        """
-        self.display = display
-
-        # initialize the variable used to indicate if the thread should be stopped
-        self.stopped = False
-
-        self.count_fps = count_fps
-        if self.count_fps:
-            self.fps = FPSCounter()
-
-    def start(self):
-        """
-        start the thread to read frames from the video stream
-        """
-        self.stopped = False
-        threading.Thread(target=self._update, args=()).start()
-        if self.count_fps:
-            self.fps.start()
-
-        return self
-
-    @abstractmethod
-    def _update(self):
-        """
-        should be implemented by child class
-        """
-        pass
-
-    def read(self):
-        """
-        return the frame most recently read
-        """
-        if self.stopped:
-            return False, False
-
-        return self.grabbed, self.frame
-
-    def stop(self):
-        """
-        indicate that the thread should be stopped
-        """
-        logging.info("Webcam video stream stopped")
-        self.stopped = True
-
-        if self.count_fps:
-            self.fps.stop()
-
-        if self.display:
-            cv2.destroyAllWindows()
-
-    def get_fps(self):
-        """
-        Return elapsed fps of fps counter
-        """
-        if not self.count_fps:
-            logging.error("No FPSCounter set")
-            return None
-        return self.fps.get_fps()
-
-    @staticmethod
-    def to_jpeg_bytes(thing):
-        if isinstance(thing, str):
-            # filename: just read the image contents
-            with open(thing, 'rb') as f:
-                return f.read()
-        elif isinstance(thing, np.ndarray):
-            # pixel array: encode to jpeg
-            ok, jpg = cv2.imencode('.jpg', thing)
-            if not ok:
-                raise ValueError('Could not encode object to jpg')
-            return jpg.tobytes()
-        else:
-            raise ValueError("Cannot encode object of type {} to jpeg".format(type(thing)))
-
-    def __del__(self):
-        self.stop()
-
-
