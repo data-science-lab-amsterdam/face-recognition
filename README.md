@@ -1,5 +1,8 @@
 # Face recognition
 
+See this blog post for an in-depth walkthrough: https://medium.com/data-science-lab-amsterdam/face-recognition-with-python-in-an-hour-or-two-d271324cbeb3
+
+
 The facial recognition works roughly as follows:
 
 ![Schema](approach-schema.png)
